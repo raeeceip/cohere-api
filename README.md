@@ -31,7 +31,7 @@ A modern, desktop GUI application that interfaces with Cohere's Command R model,
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/command-r-assistant.git
+git clone https://github.com/raeeceip/command-r-assistant.git
 cd command-r-assistant
 ```
 
