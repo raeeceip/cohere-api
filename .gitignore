@@ -1,1 +1,11 @@
 ./vendor
+.venv
+__pycache__
+*.pyc
+dist
+build
+*.egg-info
+logs
+*.ps1
+.env
+*.sh

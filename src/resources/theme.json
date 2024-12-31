@@ -1,0 +1,50 @@
+{
+  "CTk": {
+    "fg_color": [
+      "#FFFFFF",
+      "#1A1B1E"
+    ]
+  },
+  "CTkFrame": {
+    "fg_color": [
+      "#F5F6F8",
+      "#2A2B2E"
+    ],
+    "border_color": [
+      "#E2E4E9",
+      "#3A3B3E"
+    ],
+    "border_width": 1,
+    "corner_radius": 10
+  },
+  "CTkButton": {
+    "fg_color": "#7E6BD9",
+    "hover_color": "#5046E4",
+    "border_color": "#7E6BD9",
+    "border_width": 0,
+    "text_color": [
+      "#FFFFFF",
+      "#FFFFFF"
+    ],
+    "text_color_disabled": [
+      "#6B6C6F",
+      "#A0A0A0"
+    ]
+  },
+  "CTkTextbox": {
+    "fg_color": [
+      "#F5F6F8",
+      "#2A2B2E"
+    ],
+    "border_color": [
+      "#E2E4E9",
+      "#3A3B3E"
+    ],
+    "text_color": [
+      "#2A2B2E",
+      "#FFFFFF"
+    ],
+    "border_width": 1,
+    "corner_radius": 8
+  }
+}
