@@ -3,6 +3,7 @@ import os
 import sys
 import logging
 from pathlib import Path
+import psutil
 
 def initialize_application():
     """Initialize application environment and resources"""
@@ -58,8 +59,7 @@ def check_system_requirements():
         logging.error(f"Python {requirements['python_version']} or higher is required")
         return False
     
-    # Check available memory
-    import psutil
+
     available_memory = psutil.virtual_memory().available / (1024 * 1024)
     if available_memory < requirements["memory_mb"]:
         logging.warning(f"Low memory available: {available_memory:.0f}MB")

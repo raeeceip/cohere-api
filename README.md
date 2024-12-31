@@ -196,10 +196,6 @@ Example commands:
    - Workflow automation tools
    - Integration marketplace
 
-## License
-
-[Insert License Information]
-
 ## Acknowledgments
 
 - Cohere team for the Command R model
