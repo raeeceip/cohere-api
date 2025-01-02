@@ -1,55 +1,43 @@
-
-
+# src/theme/cohere_theme.py
 import customtkinter as ctk
 import json
 import os
-from pathlib import Path
-from typing import Dict, Optional
 
 class CohereTheme:
-    # Cohere brand colors
     COLORS = {
-        "primary": "#7E6BD9",      # Cohere purple
-        "secondary": "#5046E4",    # Deep purple
-        "accent": "#FF7A5C",       # Coral accent
-        "success": "#4CAF50",
-        "warning": "#FFC107",
-        "error": "#FF5252",
-        
-        # Light theme colors
+        "primary": "#7E6BD9",
+        "secondary": "#5046E4",
+        "accent": "#FF7A5C",
         "light": {
-            "background": "#FFFFFF",
-            "surface": "#F5F6F8",
-            "text": "#2A2B2E",
+            "background": "#FAFBFC",
+            "surface": "#FFFFFF",
+            "metallic": "#F0F2F5",
+            "text": "#1A1B1E",
             "text_secondary": "#6B6C6F",
-            "border": "#E2E4E9"
+            "border": "#E2E4E9",
+            "message_user": "#F0F2F5",
+            "message_assistant": "#FFFFFF"
         },
-        
-        # Dark theme colors
         "dark": {
-            "background": "#1A1B1E",
-            "surface": "#2A2B2E",
+            "background": "#1E1F23",
+            "surface": "#27282D",
+            "metallic": "#2A2B30",
             "text": "#FFFFFF",
             "text_secondary": "#A0A0A0",
-            "border": "#3A3B3E"
+            "border": "#3A3B3E",
+            "message_user": "#2D2E33",
+            "message_assistant": "#2A2B30"
         }
     }
 
     @classmethod
     def setup_theme(cls, mode: str = "system"):
-        """Set up the Cohere theme for the application"""
-        # Set appearance mode
         ctk.set_appearance_mode(mode)
-        
-        # Configure theme colors
         cls._configure_theme_colors()
-        
-        # Configure widgets
         cls._configure_widgets()
     
     @classmethod
     def _configure_theme_colors(cls):
-        """Configure color theme for both light and dark modes"""
         theme_data = {
             "CTk": {
                 "fg_color": [cls.COLORS["light"]["background"], cls.COLORS["dark"]["background"]]
@@ -58,35 +46,49 @@ class CohereTheme:
                 "fg_color": [cls.COLORS["light"]["surface"], cls.COLORS["dark"]["surface"]],
                 "border_color": [cls.COLORS["light"]["border"], cls.COLORS["dark"]["border"]],
                 "border_width": 1,
-                "corner_radius": 10
+                "corner_radius": 12
             },
             "CTkButton": {
                 "fg_color": cls.COLORS["primary"],
                 "hover_color": cls.COLORS["secondary"],
-                "border_color": cls.COLORS["primary"],
-                "border_width": 0,
                 "text_color": ["#FFFFFF", "#FFFFFF"],
-                "text_color_disabled": [cls.COLORS["light"]["text_secondary"], 
-                                     cls.COLORS["dark"]["text_secondary"]]
+                "corner_radius": 8
             },
             "CTkTextbox": {
-                "fg_color": [cls.COLORS["light"]["surface"], cls.COLORS["dark"]["surface"]],
+                "fg_color": ["transparent", "transparent"],
                 "border_color": [cls.COLORS["light"]["border"], cls.COLORS["dark"]["border"]],
                 "text_color": [cls.COLORS["light"]["text"], cls.COLORS["dark"]["text"]],
                 "border_width": 1,
                 "corner_radius": 8
+            },
+            "CTkScrollableFrame": {
+                "fg_color": [cls.COLORS["light"]["background"], cls.COLORS["dark"]["background"]],
+                "corner_radius": 8
             }
         }
         
-        # Save theme to file for persistence
-        theme_file = Path(os.getenv("RESOURCE_PATH")) / "theme.json"
-        with open(theme_file, "w") as f:
+        resource_path = os.getenv("RESOURCE_PATH", "resources")
+        if not os.path.exists(resource_path):
+            os.makedirs(resource_path)
+            
+        with open(os.path.join(resource_path, "theme.json"), "w") as f:
             json.dump(theme_data, f, indent=2)
-        
 
-    
     @classmethod
     def _configure_widgets(cls):
-        """Configure default widget properties"""
-        ctk.set_widget_scaling(1.0)  # Ensure consistent scaling
+        ctk.set_widget_scaling(1.0)
         ctk.set_window_scaling(1.0)
+
+    @classmethod
+    def get_message_colors(cls, role: str, mode: str = "dark"):
+        theme = cls.COLORS[mode.lower()]
+        return {
+            "user": {
+                "bg": theme["message_user"],
+                "text": theme["text"]
+            },
+            "assistant": {
+                "bg": theme["message_assistant"],
+                "text": theme["text"]
+            }
+        }.get(role.lower(), {"bg": theme["message_assistant"], "text": theme["text"]})

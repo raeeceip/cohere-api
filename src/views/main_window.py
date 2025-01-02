@@ -1,15 +1,20 @@
 # src/views/main_window.py
-
 import customtkinter as ctk
 import json
 import os
 from dotenv import load_dotenv
 import cohere
 import subprocess
-from datetime import datetime
 import pytz
 from PIL import Image
 from pathlib import Path
+import sys
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+from theme.cohere_theme import CohereTheme
+from components.chat_message import ChatMessage
+from components.status_bar import StatusBar
 
 class CohereAssistantGUI:
     def __init__(self):
@@ -17,99 +22,72 @@ class CohereAssistantGUI:
         self.setup_window()
         
     def setup_window(self):
-        # Create main window
         self.window = ctk.CTk()
         self.window.title("Cohere Assistant")
         self.window.geometry("1200x800")
         
-        # Set theme
-        self.setup_theme()
+        CohereTheme.setup_theme("dark")
+        self.colors = CohereTheme.COLORS
         
-        # Create layout
         self.create_layout()
         
-        # Initialize Cohere client
         load_dotenv()
         self.co = cohere.ClientV2(os.getenv('COHERE_API_KEY'))
+        self.messages = []
         
-        # Bind events
         self.bind_events()
         
         self.window.mainloop()
         
-    def setup_theme(self):
-        # Cohere colors
-        self.colors = {
-            "primary": "#7E6BD9",      # Cohere purple
-            "secondary": "#5046E4",    # Deep purple
-            "accent": "#FF7A5C",       # Coral accent
-            "background": "#1A1B1E",   # Dark background
-            "surface": "#2A2B2E",      # Surface color
-            "text": "#FFFFFF",         # Text color
-            "text_secondary": "#A0A0A0"  # Secondary text
-        }
-        
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("dark-blue")
-        
     def create_layout(self):
-        # Configure grid
         self.window.grid_columnconfigure(1, weight=1)
         self.window.grid_rowconfigure(0, weight=1)
         
-        # Create sidebar with Cohere styling
         self.create_sidebar()
-        
-        # Create main chat area
         self.create_chat_area()
         
     def create_sidebar(self):
-        # Sidebar container
         self.sidebar = ctk.CTkFrame(
             self.window,
-            fg_color=self.colors["surface"],
+            fg_color=self.colors["dark"]["metallic"],
             width=300,
-            corner_radius=20
+            corner_radius=12
         )
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         self.sidebar.grid_propagate(False)
         
-        # Cohere logo/title
-        logo_frame = ctk.CTkFrame(
-            self.sidebar,
-            fg_color="transparent"
-        )
-        logo_frame.pack(fill="x", padx=20, pady=20)
-        
         title = ctk.CTkLabel(
-            logo_frame,
+            self.sidebar,
             text="Cohere Assistant",
             font=ctk.CTkFont(size=24, weight="bold"),
-            text_color=self.colors["text"]
+            text_color=self.colors["dark"]["text"]
         )
-        title.pack(anchor="w")
+        title.pack(anchor="w", padx=20, pady=20)
+        
+        divider = ctk.CTkFrame(
+            self.sidebar,
+            height=1,
+            fg_color=self.colors["dark"]["border"]
+        )
+        divider.pack(fill="x", padx=20, pady=10)
         
         # Settings section
-        settings_label = ctk.CTkLabel(
+        settings = ctk.CTkLabel(
             self.sidebar,
             text="Settings",
             font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=self.colors["text"]
+            text_color=self.colors["dark"]["text"]
         )
-        settings_label.pack(anchor="w", padx=20, pady=(20, 10))
+        settings.pack(anchor="w", padx=20, pady=(20, 10))
         
-        # Temperature control
-        temp_frame = ctk.CTkFrame(
-            self.sidebar,
-            fg_color="transparent"
-        )
+        temp_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         temp_frame.pack(fill="x", padx=20, pady=10)
         
         temp_label = ctk.CTkLabel(
             temp_frame,
             text="Temperature:",
             font=ctk.CTkFont(size=14),
-            text_color=self.colors["text_secondary"]
+            text_color=self.colors["dark"]["text"]
         )
         temp_label.pack(anchor="w")
         
@@ -119,174 +97,141 @@ class CohereAssistantGUI:
             to=1,
             number_of_steps=100,
             progress_color=self.colors["primary"],
-            button_color=self.colors["accent"],
-            button_hover_color=self.colors["secondary"]
+            button_color=self.colors["accent"]
         )
         self.temperature.set(0.7)
         self.temperature.pack(fill="x", pady=(5, 0))
         
-        # Streaming toggle
-        stream_frame = ctk.CTkFrame(
-            self.sidebar,
-            fg_color="transparent"
-        )
-        stream_frame.pack(fill="x", padx=20, pady=10)
-        
         self.stream_var = ctk.BooleanVar(value=True)
         self.stream_switch = ctk.CTkSwitch(
-            stream_frame,
+            self.sidebar,
             text="Stream Output",
             font=ctk.CTkFont(size=14),
-            text_color=self.colors["text_secondary"],
+            variable=self.stream_var,
             progress_color=self.colors["primary"],
-            button_color=self.colors["accent"],
-            button_hover_color=self.colors["secondary"],
-            variable=self.stream_var
+            button_color=self.colors["accent"]
         )
-        self.stream_switch.pack(anchor="w")
+        self.stream_switch.pack(anchor="w", padx=20, pady=10)
         
     def create_chat_area(self):
-        # Main chat container
         self.chat_container = ctk.CTkFrame(
             self.window,
-            fg_color=self.colors["surface"],
-            corner_radius=20
+            fg_color=self.colors["dark"]["metallic"],
+            corner_radius=12
         )
         self.chat_container.grid(row=0, column=1, sticky="nsew", padx=(0, 20), pady=20)
         self.chat_container.grid_columnconfigure(0, weight=1)
         self.chat_container.grid_rowconfigure(1, weight=1)
         
-        # Input area
-        self.input_frame = ctk.CTkFrame(
+        self.messages_frame = ctk.CTkScrollableFrame(
             self.chat_container,
-            fg_color="transparent"
+            fg_color=self.colors["dark"]["background"],
+            corner_radius=8
         )
-        self.input_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
-        self.input_frame.grid_columnconfigure(0, weight=1)
+        self.messages_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        self.messages_frame.grid_columnconfigure(0, weight=1)
+        
+        input_container = ctk.CTkFrame(
+            self.chat_container,
+            fg_color="transparent",
+            height=120
+        )
+        input_container.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        input_container.grid_columnconfigure(0, weight=1)
         
         self.input_text = ctk.CTkTextbox(
-            self.input_frame,
+            input_container,
             height=100,
-            fg_color=self.colors["background"],
-            text_color=self.colors["text"],
+            fg_color=self.colors["dark"]["background"],
+            text_color=self.colors["dark"]["text"],
             font=ctk.CTkFont(size=14),
-            border_color=self.colors["primary"],
-            border_width=2,
-            corner_radius=10
+            border_width=1,
+            corner_radius=8,
+            wrap="word"
         )
-        self.input_text.grid(row=0, column=0, sticky="ew")
+        self.input_text.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         
-        # Chat history area
-        self.output_frame = ctk.CTkFrame(
-            self.chat_container,
-            fg_color=self.colors["background"],
-            corner_radius=10
-        )
-        self.output_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
-        self.output_frame.grid_columnconfigure(0, weight=1)
-        self.output_frame.grid_rowconfigure(0, weight=1)
-        
-        self.output_text = ctk.CTkTextbox(
-            self.output_frame,
-            fg_color="transparent",
-            text_color=self.colors["text"],
-            font=ctk.CTkFont(size=14),
-            corner_radius=0
-        )
-        self.output_text.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        
-        # Status bar
-        self.status_bar = ctk.CTkLabel(
-            self.chat_container,
-            text="Ready",
-            font=ctk.CTkFont(size=12),
-            text_color=self.colors["text_secondary"]
-        )
-        self.status_bar.grid(row=2, column=0, sticky="e", padx=20, pady=10)
+        self.status_bar = StatusBar(self.chat_container)
+        self.status_bar.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 10))
         
     def bind_events(self):
-        self.window.bind('<Return>', lambda _: self.generate_response())
-        self.window.bind('<Command-k>', lambda _: self.clear_output())
-
+        self.window.bind('<Return>', lambda e: self.generate_response())
+        self.window.bind('<Command-k>', lambda e: self.clear_output())
+        
+    def add_message(self, role: str, content: str):
+        message = {"role": role, "content": content}
+        self.messages.append(message)
+        
+        msg_widget = ChatMessage(
+            self.messages_frame,
+            message
+        )
+        msg_widget.pack(fill="x", padx=10, pady=5)
+        return msg_widget
+        
     def generate_response(self):
-        """Generate response based on user input"""
         prompt = self.input_text.get("1.0", "end").strip()
         if not prompt:
             return
+            
+        msg_widget = self.add_message("user", prompt)
+        self.input_text.delete("1.0", "end")
         
-        self.output_text.insert("end", f"\nUser: {prompt}\n")
-
-        if "calendar" in prompt:
-            self.handle_calendar_request(self, prompt)
+        if "calendar" in prompt.lower():
+            self.handle_calendar_request(prompt)
         else:
             if self.stream_var.get():
                 self.stream_response(prompt)
             else:
-                self.generate_complete_response(self, prompt)
-
+                self.generate_complete_response(prompt)
+                
     def stream_response(self, prompt):
-        """Handle streaming responses using the updated Cohere SDK"""
         try:
-            # Create message format
-            messages = [{"role": "user", "content": prompt}]
-            
-            # Use chat_stream instead of chat with stream parameter
+            messages = [{"role": m["role"], "content": m["content"]} for m in self.messages]
             response = self.co.chat_stream(
                 model="command",
                 messages=messages,
                 temperature=self.temperature.get()
             )
             
-            full_response = ""
+            current_response = ""
+            msg_widget = None
+            
             for event in response:
                 if event.type == "content-delta":
                     chunk = event.delta.message.content.text
-                    full_response += chunk
-                    self.output_text.insert("end", chunk)
-                    self.output_text.see("end")
+                    current_response += chunk
+                    
+                    if msg_widget is None:
+                        msg_widget = self.add_message("assistant", current_response)
+                    else:
+                        msg_widget.update_message(current_response)
+                        
                     self.window.update()
+                    self.messages_frame._parent_canvas.yview_moveto(1.0)
             
-            self.status_bar.configure(
-                text="Response completed",
-                text_color=self.colors["text_secondary"]
-            )
+            self.status_bar.set_status("Response completed", "success")
             
         except Exception as e:
-            error_msg = str(e)
-            self.status_bar.configure(
-                text="Error occurred",
-                text_color=self.colors["error"]
-            )
-            self.output_text.insert("end", f"\nError: {error_msg}")
-            print(f"Streaming error: {error_msg}")
-
+            self.status_bar.set_status(f"Error: {str(e)}", "error")
+            
     def generate_complete_response(self, prompt):
-        """Generate a complete response without streaming"""
         try:
-            messages = [{"role": "user", "content": prompt}]
+            messages = [{"role": m["role"], "content": m["content"]} for m in self.messages]
             response = self.co.chat(
                 model="command",
                 messages=messages,
                 temperature=self.temperature.get()
             )
             
-            self.output_text.insert("end", response.text)
-            self.status_bar.configure(
-                text="Response completed",
-                text_color=self.colors["text_secondary"]
-            )
-                
+            self.add_message("assistant", response.text)
+            self.status_bar.set_status("Response completed", "success")
+            self.messages_frame._parent_canvas.yview_moveto(1.0)
+            
         except Exception as e:
-            error_msg = str(e)
-            self.status_bar.configure(
-                text="Error occurred",
-                text_color=self.colors["error"]
-            )
-            self.output_text.insert("end", f"\nError: {error_msg}")
-            print(f"Response error: {error_msg}")
+            self.status_bar.set_status(f"Error: {str(e)}", "error")
 
     def handle_calendar_request(self, prompt):
-        """Handle calendar-related requests"""
         try:
             system_prompt = """Extract meeting details and format as JSON:
             {
@@ -296,20 +241,16 @@ class CohereAssistantGUI:
                 "duration": 30
             }"""
             
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Extract meeting details from: {prompt}"}
-            ]
-            
             response = self.co.chat(
                 model="command",
-                messages=messages,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Extract meeting details from: {prompt}"}
+                ],
                 temperature=0.1
             )
             
             meeting_details = json.loads(response.text)
-            
-            # Create calendar event
             script = f'''
             tell application "Calendar"
                 tell calendar "Calendar"
@@ -330,28 +271,20 @@ class CohereAssistantGUI:
             Time: {meeting_details['time']}
             Duration: {meeting_details['duration']} minutes"""
             
-            self.output_text.insert("end", success_message)
-            self.status_bar.configure(
-                text="Meeting scheduled",
-                text_color=self.colors["success"]
-            )
+            self.add_message("assistant", success_message)
+            self.status_bar.set_status("Meeting scheduled", "success")
             
         except Exception as e:
             error_msg = str(e)
-            self.output_text.insert("end", f"Error scheduling meeting: {error_msg}")
-            self.status_bar.configure(
-                text="Error",
-                text_color=self.colors["error"]
-            )
-
-
-
-
-    
+            self.add_message("assistant", f"Error scheduling meeting: {error_msg}")
+            self.status_bar.set_status("Error", "error")
+            
     def clear_output(self):
-        self.output_text.delete("1.0", "end")
+        for widget in self.messages_frame.winfo_children():
+            widget.destroy()
+        self.messages = []
         self.input_text.delete("1.0", "end")
-        self.status_bar.configure(text="Ready")
+        self.status_bar.set_status("Ready", "info")
 
 if __name__ == "__main__":
     app = CohereAssistantGUI()

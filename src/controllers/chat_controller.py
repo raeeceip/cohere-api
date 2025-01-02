@@ -59,7 +59,7 @@ class ChatController:
             else:
                 response = self.co.chat(
                     model="command",
-                    messages=messages,
+                    messages=message,
                     temperature=temperature
                 )
                 
