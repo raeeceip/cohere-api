@@ -1,178 +1,138 @@
-# Command R Assistant GUI
+# CommandR Assistant (Experimental Prototype)
 
-A modern, desktop GUI application that interfaces with Cohere's Command R model, providing a seamless experience for natural language interactions and system automation.
+## ⚠️ Prototype Status
+This is an experimental prototype of a desktop GUI for Cohere's Command model. It is currently in early development and contains known issues. This release is intended for testing and feedback purposes only.
 
-## Features
+## Project Description
+CommandR Assistant is an experimental desktop GUI application that provides a simple interface for interacting with Cohere's Command model. Built with CustomTkinter and designed for macOS, it attempts to integrate natural language processing with system operations like calendar management.
 
-### Core Functionality
+## 🧪 v0.1.0-alpha (Initial Prototype)
 
-- **Modern Interface**: Built with CustomTkinter for a clean, modern look that respects system appearance settings
-- **Real-time Interaction**: Supports both streaming and non-streaming responses
-- **Keyboard Shortcuts**:
-  - `Command+R` to launch the application
-  - `Enter` to generate responses
-  - `Command+K` to clear output
+### Features
+- Basic chat interface with Cohere's Command model
+- Experimental calendar event creation (highly unstable)
+- Temperature adjustment for responses
+- Stream/non-stream response toggle
+- Dark mode interface
 
-### AI Capabilities
+### Known Issues
+- Calendar integration may fail or behave unexpectedly
+- Async operations can cause UI freezes
+- Response generation sometimes requires multiple attempts
+- Return key handling is inconsistent
+- Memory usage grows over time
+- No proper error recovery for failed API calls
+- Stream mode may display incomplete responses
+- Settings are not persisted between sessions
 
-- **General Chat**: Open-ended conversations with Command R model
-- **Calendar Integration**: Natural language meeting scheduling that integrates with macOS Calendar
-- **Temperature Control**: Adjustable creativity in responses via temperature slider
-- **Stream Toggle**: Option to see responses appear in real-time or wait for complete responses
-
-### System Integration
-
-- **Calendar Events**: Creates calendar events directly in macOS Calendar using AppleScript
-- **Environment Variables**: Secure API key management through .env files
-- **Error Handling**: Robust error handling and user feedback through status bar
-
-## Installation
-
-1. Clone the repository:
-
+### Installation
 ```bash
-git clone https://github.com/raeeceip/command-r-assistant.git
+# Clone the repository
+git clone https://github.com/yourusername/command-r-assistant.git
 cd command-r-assistant
-```
 
-2. Install required packages:
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-```bash
-pip install customtkinter cohere python-dotenv
-```
+# Install dependencies
+pip install -r requirements.txt
 
-3. Create a .env file with your Cohere API key:
-
-```bash
+# Set up environment variables
 echo "COHERE_API_KEY=your_api_key_here" > .env
+
+# Run the application
+python src/main.py
 ```
 
-4. Set up the Command+R shortcut in System Preferences:
-   - Open System Preferences > Keyboard > Shortcuts
-   - Add new shortcut pointing to the script location
+### Requirements
+- Python 3.8+
+- macOS (calendar features are macOS-specific)
+- Cohere API key
+- Minimum 512MB RAM
+- Internet connection
 
-## Usage
+### Usage Warning
+⚠️ This software is experimental and not intended for production use. It may:
+- Crash unexpectedly
+- Create invalid calendar entries
+- Fail to handle errors gracefully
+- Consume excessive system resources
+- Lose conversation history
+- Generate unexpected responses
 
-### Basic Interaction
+### Development Status
+This project is in active development but is currently:
+- Missing proper testing
+- Lacking error handling in many areas
+- Using experimental async patterns
+- Not optimized for performance
+- Missing many planned features
 
-- Launch the app using Command+R
-- Type your query in the input box
-- Press Enter to generate a response
-- Use the temperature slider to adjust response creativity
-- Toggle streaming to see responses in real-time
+### Planned Improvements
+1. Proper async/sync handling
+2. Robust error recovery
+3. Persistent settings storage
+4. Memory optimization
+5. Proper calendar integration
+6. Cross-platform support
+7. Conversation history
+8. Response validation
+9. Unit tests
+10. CI/CD pipeline
 
-### Calendar Features
+### Contributing
+This is an experimental project and contributions are welcome. However, please note that the codebase is rapidly changing and may be significantly refactored.
 
-Example commands:
+### License
+MIT License - See LICENSE file for details
 
-- "Schedule a team meeting tomorrow at 2pm for 1 hour"
-- "Set up a project review for next Monday at 10am"
-- "Schedule a 30-minute coffee chat with John for Friday afternoon"
+---
 
-## Potential Improvements
+## Setup Instructions for Developers
 
-### Model Integration
+### Environment Setup
+```bash
+# Required environment variables
+COHERE_API_KEY=your_api_key_here
 
-1. **RAG Integration**:
+# Optional configuration
+DEBUG=True
+LOG_LEVEL=DEBUG
+```
 
-   - Add document upload capability
-   - Implement context window management
-   - Add source attribution in responses
+### Development Dependencies
+```bash
+pip install -r requirements-dev.txt
+```
 
-2. **Tool Use Enhancement**:
+### Running Tests (Not Yet Implemented)
+```bash
+pytest tests/
+```
 
-   - Expand beyond calendar to other system tools
-   - Add API integration capabilities
-   - Implement structured tool response handling
+### Project Structure
+```
+command-r-assistant/
+├── src/
+│   ├── components/
+│   ├── theme/
+│   ├── validators/
+│   ├── views/
+│   └── main.py
+├── tests/
+├── .env
+├── requirements.txt
+└── README.md
+```
 
-3. **Model Performance**:
-   - Add prompt templates for different use cases
-   - Implement retry logic for failed requests
-   - Add response quality metrics
+### Debug Mode
+To run in debug mode with additional logging:
+```bash
+python src/main.py --debug
+```
 
-### Technical Improvements
-
-1. **GUI Enhancements**:
-
-   - Add conversation history management
-   - Implement chat memory
-   - Add markdown rendering in output
-   - Add syntax highlighting for code
-   - Support for multiple chat sessions in tabs
-
-2. **System Integration**:
-
-   - Add support for multiple calendar providers
-   - Implement email integration
-   - Add file system operations
-   - Support for task management systems
-
-3. **Development Features**:
-   - Add logging system
-   - Implement telemetry for usage patterns
-   - Add unit and integration tests
-   - Create plugin system for extensions
-
-### User Experience
-
-1. **Interface**:
-
-   - Add conversation export
-   - Implement themes and customization
-   - Add keyboard shortcut customization
-   - Implement autocomplete suggestions
-
-2. **Productivity**:
-
-   - Add templates for common requests
-   - Implement batch operations
-   - Add scheduled operations
-   - Create macro system for repeated tasks
-
-3. **Accessibility**:
-   - Add voice input support
-   - Implement screen reader compatibility
-   - Add keyboard navigation improvements
-   - Support for multiple languages
-
-## Contributing to Cohere's Ecosystem
-
-### Model Feedback
-
-1. **Data Collection**:
-
-   - Track successful vs failed queries
-   - Collect user corrections and adjustments
-   - Monitor response quality and relevance
-   - Gather performance metrics
-
-2. **Feature Requests**:
-
-   - Document common user requests
-   - Track feature usage patterns
-   - Identify integration opportunities
-   - Report edge cases and limitations
-
-3. **Integration Testing**:
-   - Test model in real-world scenarios
-   - Validate system integration capabilities
-   - Benchmark performance metrics
-   - Document integration patterns
-
-### Development Support
-
-1. **SDK Improvements**:
-
-   - Suggest new SDK features
-   - Report bug findings
-   - Document usage patterns
-   - Create example implementations
-
-2. **Community Resources**:
-   - Share implementation examples
-   - Create tutorials and guides
-   - Document best practices
-   - Build reusable components
+---
 
 ## Future Directions
 
@@ -200,4 +160,6 @@ Example commands:
 
 - Cohere team for the Command R model
 - CustomTkinter for the modern UI framework
-- Contributors and testers
+
+
+⚠️ Final Note: This is a prototype release intended for testing and feedback. Use at your own risk and please report any issues you encounter.
