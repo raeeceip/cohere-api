@@ -1,52 +1,67 @@
 # src/views/main_window.py
+
 import customtkinter as ctk
 import json
 import os
 from dotenv import load_dotenv
 import cohere
-import subprocess
 import pytz
-from PIL import Image
+from datetime import datetime
+from typing import Optional, Dict, Any
 from pathlib import Path
-import sys
-
-sys.path.append(str(Path(__file__).parent.parent))
 
 from theme.cohere_theme import CohereTheme
 from components.chat_message import ChatMessage
 from components.status_bar import StatusBar
+from utils.validator import ResponseValidator, ValidationError
 
 class CohereAssistantGUI:
+    """Main application window and controller for the Cohere Assistant"""
+    
     def __init__(self):
         self.window = None
+        self.validator = ResponseValidator()
         self.setup_window()
         
+    # ============================================================================
+    # Window Setup and Layout
+    # ============================================================================
+    
     def setup_window(self):
+        """Initialize main window and components"""
         self.window = ctk.CTk()
         self.window.title("Cohere Assistant")
         self.window.geometry("1200x800")
         
+        # Set up theme and components
         CohereTheme.setup_theme("dark")
         self.colors = CohereTheme.COLORS
+        self._create_layout()
         
-        self.create_layout()
-        
+        # Initialize Cohere client
         load_dotenv()
         self.co = cohere.ClientV2(os.getenv('COHERE_API_KEY'))
         self.messages = []
         
-        self.bind_events()
+        # Bind events
+        self._bind_events()
         
         self.window.mainloop()
-        
-    def create_layout(self):
+    
+    def _create_layout(self):
+        """Create main application layout"""
         self.window.grid_columnconfigure(1, weight=1)
         self.window.grid_rowconfigure(0, weight=1)
         
-        self.create_sidebar()
-        self.create_chat_area()
-        
-    def create_sidebar(self):
+        self._create_sidebar()
+        self._create_chat_area()
+    
+    # ============================================================================
+    # Sidebar Components
+    # ============================================================================
+    
+    def _create_sidebar(self):
+        """Create settings sidebar"""
         self.sidebar = ctk.CTkFrame(
             self.window,
             fg_color=self.colors["dark"]["metallic"],
@@ -56,6 +71,13 @@ class CohereAssistantGUI:
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         self.sidebar.grid_propagate(False)
         
+        # Add sidebar components
+        self._add_title()
+        self._add_divider()
+        self._add_settings()
+    
+    def _add_title(self):
+        """Add application title to sidebar"""
         title = ctk.CTkLabel(
             self.sidebar,
             text="Cohere Assistant",
@@ -63,15 +85,19 @@ class CohereAssistantGUI:
             text_color=self.colors["dark"]["text"]
         )
         title.pack(anchor="w", padx=20, pady=20)
-        
+    
+    def _add_divider(self):
+        """Add divider line in sidebar"""
         divider = ctk.CTkFrame(
             self.sidebar,
             height=1,
             fg_color=self.colors["dark"]["border"]
         )
         divider.pack(fill="x", padx=20, pady=10)
-        
-        # Settings section
+    
+    def _add_settings(self):
+        """Add settings controls to sidebar"""
+        # Settings label
         settings = ctk.CTkLabel(
             self.sidebar,
             text="Settings",
@@ -80,6 +106,7 @@ class CohereAssistantGUI:
         )
         settings.pack(anchor="w", padx=20, pady=(20, 10))
         
+        # Temperature control
         temp_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         temp_frame.pack(fill="x", padx=20, pady=10)
         
@@ -102,6 +129,7 @@ class CohereAssistantGUI:
         self.temperature.set(0.7)
         self.temperature.pack(fill="x", pady=(5, 0))
         
+        # Stream toggle
         self.stream_var = ctk.BooleanVar(value=True)
         self.stream_switch = ctk.CTkSwitch(
             self.sidebar,
@@ -112,8 +140,13 @@ class CohereAssistantGUI:
             button_color=self.colors["accent"]
         )
         self.stream_switch.pack(anchor="w", padx=20, pady=10)
-        
-    def create_chat_area(self):
+    
+    # ============================================================================
+    # Chat Area Components
+    # ============================================================================
+    
+    def _create_chat_area(self):
+        """Create main chat interface"""
         self.chat_container = ctk.CTkFrame(
             self.window,
             fg_color=self.colors["dark"]["metallic"],
@@ -123,6 +156,12 @@ class CohereAssistantGUI:
         self.chat_container.grid_columnconfigure(0, weight=1)
         self.chat_container.grid_rowconfigure(1, weight=1)
         
+        self._create_messages_area()
+        self._create_input_area()
+        self._create_status_bar()
+    
+    def _create_messages_area(self):
+        """Create scrollable messages area"""
         self.messages_frame = ctk.CTkScrollableFrame(
             self.chat_container,
             fg_color=self.colors["dark"]["background"],
@@ -130,7 +169,9 @@ class CohereAssistantGUI:
         )
         self.messages_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         self.messages_frame.grid_columnconfigure(0, weight=1)
-        
+    
+    def _create_input_area(self):
+        """Create chat input area"""
         input_container = ctk.CTkFrame(
             self.chat_container,
             fg_color="transparent",
@@ -150,141 +191,160 @@ class CohereAssistantGUI:
             wrap="word"
         )
         self.input_text.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        
+    
+    def _create_status_bar(self):
+        """Create status bar"""
         self.status_bar = StatusBar(self.chat_container)
         self.status_bar.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 10))
-        
-    def bind_events(self):
+    
+    # ============================================================================
+    # Event Handling
+    # ============================================================================
+    
+    def _bind_events(self):
+        """Bind keyboard events"""
         self.window.bind('<Return>', lambda e: self.generate_response())
         self.window.bind('<Command-k>', lambda e: self.clear_output())
-        
-    def add_message(self, role: str, content: str):
+    
+    def _add_message(self, role: str, content: str) -> ChatMessage:
+        """Add a new message to the chat"""
         message = {"role": role, "content": content}
         self.messages.append(message)
         
-        msg_widget = ChatMessage(
-            self.messages_frame,
-            message
-        )
+        msg_widget = ChatMessage(self.messages_frame, message)
         msg_widget.pack(fill="x", padx=10, pady=5)
         return msg_widget
-        
-    def generate_response(self):
-        prompt = self.input_text.get("1.0", "end").strip()
-        if not prompt:
-            return
-            
-        msg_widget = self.add_message("user", prompt)
-        self.input_text.delete("1.0", "end")
-        
-        if "calendar" in prompt.lower():
-            self.handle_calendar_request(prompt)
-        else:
-            if self.stream_var.get():
-                self.stream_response(prompt)
-            else:
-                self.generate_complete_response(prompt)
-                
-    def stream_response(self, prompt):
-        try:
-            messages = [{"role": m["role"], "content": m["content"]} for m in self.messages]
-            response = self.co.chat_stream(
-                model="command",
-                messages=messages,
-                temperature=self.temperature.get()
-            )
-            
-            current_response = ""
-            msg_widget = None
-            
-            for event in response:
-                if event.type == "content-delta":
-                    chunk = event.delta.message.content.text
-                    current_response += chunk
-                    
-                    if msg_widget is None:
-                        msg_widget = self.add_message("assistant", current_response)
-                    else:
-                        msg_widget.update_message(current_response)
-                        
-                    self.window.update()
-                    self.messages_frame._parent_canvas.yview_moveto(1.0)
-            
-            self.status_bar.set_status("Response completed", "success")
-            
-        except Exception as e:
-            self.status_bar.set_status(f"Error: {str(e)}", "error")
-            
-    def generate_complete_response(self, prompt):
-        try:
-            messages = [{"role": m["role"], "content": m["content"]} for m in self.messages]
-            response = self.co.chat(
-                model="command",
-                messages=messages,
-                temperature=self.temperature.get()
-            )
-            
-            self.add_message("assistant", response.text)
-            self.status_bar.set_status("Response completed", "success")
-            self.messages_frame._parent_canvas.yview_moveto(1.0)
-            
-        except Exception as e:
-            self.status_bar.set_status(f"Error: {str(e)}", "error")
-
-    def handle_calendar_request(self, prompt):
-        try:
-            system_prompt = """Extract meeting details and format as JSON:
-            {
-                "title": "meeting title",
-                "date": "YYYY-MM-DD",
-                "time": "HH:MM",
-                "duration": 30
-            }"""
-            
-            response = self.co.chat(
-                model="command",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Extract meeting details from: {prompt}"}
-                ],
-                temperature=0.1
-            )
-            
-            meeting_details = json.loads(response.text)
-            script = f'''
-            tell application "Calendar"
-                tell calendar "Calendar"
-                    make new event at end with properties {{
-                        summary: "{meeting_details['title']}",
-                        start date: date "{meeting_details['date']} {meeting_details['time']}",
-                        duration: {meeting_details['duration']} * minutes
-                    }}
-                end tell
-            end tell
-            '''
-            
-            subprocess.run(['osascript', '-e', script])
-            
-            success_message = f"""Meeting scheduled successfully!
-            Title: {meeting_details['title']}
-            Date: {meeting_details['date']}
-            Time: {meeting_details['time']}
-            Duration: {meeting_details['duration']} minutes"""
-            
-            self.add_message("assistant", success_message)
-            self.status_bar.set_status("Meeting scheduled", "success")
-            
-        except Exception as e:
-            error_msg = str(e)
-            self.add_message("assistant", f"Error scheduling meeting: {error_msg}")
-            self.status_bar.set_status("Error", "error")
-            
+    
     def clear_output(self):
+        """Clear all messages and reset input"""
         for widget in self.messages_frame.winfo_children():
             widget.destroy()
         self.messages = []
         self.input_text.delete("1.0", "end")
         self.status_bar.set_status("Ready", "info")
+    
+    # ============================================================================
+    # Response Generation and Processing
+    # ============================================================================
+    
+    async def generate_response(self):
+        """Generate and validate response from Cohere"""
+        prompt = self.input_text.get("1.0", "end").strip()
+        if not prompt:
+            return
+            
+        msg_widget = self._add_message("user", prompt)
+        self.input_text.delete("1.0", "end")
+        
+        try:
+            if "calendar" in prompt.lower() or "schedule" in prompt.lower():
+                await self._handle_calendar_request(prompt)
+            else:
+                await self._handle_chat_request(prompt)
+                
+        except Exception as e:
+            self.status_bar.set_status(f"Error: {str(e)}", "error")
+    
+    async def _handle_calendar_request(self, prompt: str):
+        """Handle calendar-related requests"""
+        try:
+            # Validate and extract event details
+            event = self.validator.validate_calendar_event(prompt)
+            
+            # Try to create calendar event
+            try:
+                from icalendar import Calendar, Event
+                from datetime import datetime, timedelta
+                
+                cal = Calendar()
+                event_obj = Event()
+                
+                start_dt = datetime.strptime(f"{event['date']} {event['time']}", "%Y-%m-%d %H:%M")
+                
+                event_obj.add('summary', event['title'])
+                event_obj.add('dtstart', start_dt)
+                event_obj.add('duration', timedelta(minutes=event['duration']))
+                
+                cal.add_component(event_obj)
+                
+                # Save to user's calendar directory
+                calendar_dir = Path.home() / "Library" / "Calendars"
+                calendar_dir.mkdir(parents=True, exist_ok=True)
+                
+                event_file = calendar_dir / f"{event['title'].replace(' ', '_')}.ics"
+                with open(event_file, 'wb') as f:
+                    f.write(cal.to_ical())
+                
+                success = True
+                
+            except Exception as e:
+                success = False
+            
+            if success:
+                response = f"""Meeting scheduled successfully!
+                Title: {event['title']}
+                Date: {event['date']}
+                Time: {event['time']}
+                Duration: {event['duration']} minutes"""
+                
+                self._add_message("assistant", response)
+                self.status_bar.set_status("Meeting scheduled", "success")
+            else:
+                self._add_message("assistant", "Failed to create calendar event.")
+                self.status_bar.set_status("Error scheduling meeting", "error")
+                
+        except ValidationError as e:
+            self._add_message("assistant", f"I couldn't understand the event details: {str(e)}")
+            self.status_bar.set_status("Validation error", "error")
+    
+    async def _handle_chat_request(self, prompt: str):
+        """Handle general chat requests"""
+        try:
+            messages = [{"role": m["role"], "content": m["content"]} for m in self.messages]
+            
+            if self.stream_var.get():
+                # Handle streaming response
+                response = self.co.chat_stream(
+                    model="command",
+                    messages=messages,
+                    temperature=self.temperature.get()
+                )
+                
+                current_response = ""
+                msg_widget = None
+                
+                for event in response:
+                    if event.event_type == "text-generation":
+                        chunk = event.text
+                        current_response += chunk
+                        
+                        # Validate the chunk
+                        validated_chunk = self.validator.validate_chat_response(chunk)
+                        
+                        if msg_widget is None:
+                            msg_widget = self._add_message("assistant", validated_chunk)
+                        else:
+                            msg_widget.update_message(current_response)
+                        
+                        self.window.update()
+                        self.messages_frame._parent_canvas.yview_moveto(1.0)
+            else:
+                # Handle complete response
+                response = self.co.chat(
+                    model="command",
+                    messages=messages,
+                    temperature=self.temperature.get()
+                )
+                
+                # Validate complete response
+                validated_response = self.validator.validate_chat_response(response.text)
+                self._add_message("assistant", validated_response)
+                self.messages_frame._parent_canvas.yview_moveto(1.0)
+            
+            self.status_bar.set_status("Response completed", "success")
+            
+        except Exception as e:
+            self.status_bar.set_status(f"Error: {str(e)}", "error")
 
 if __name__ == "__main__":
     app = CohereAssistantGUI()
