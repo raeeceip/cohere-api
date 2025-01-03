@@ -6,12 +6,13 @@ from controllers.chat_controller import ChatController
 from theme.cohere_theme import CohereTheme
 from utils.hotkey_manager import HotkeyManager
 from utils.logger import setup_logger
+import logging 
 
 def setup_environment():
     """Set up the application environment"""
     # Set up logging
     setup_logger()
-    
+      
     # Ensure resource path is correct in built application
     if getattr(sys, 'frozen', False):
         application_path = Path(sys._MEIPASS)

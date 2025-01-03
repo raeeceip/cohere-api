@@ -1,15 +1,24 @@
 # src/views/main_window.py
 
-import customtkinter as ctk
-import json
+# Core Python imports
 import os
+import json
+import asyncio
+import threading
+from datetime import datetime, timedelta
+from pathlib import Path
+from queue import Queue
+from typing import Optional, Dict, Any
+import logging
+
+# Third-party dependencies
+import customtkinter as ctk
 from dotenv import load_dotenv
 import cohere
 import pytz
-from datetime import datetime
-from typing import Optional, Dict, Any
-from pathlib import Path
+from icalendar import Calendar, Event
 
+# Local application imports
 from theme.cohere_theme import CohereTheme
 from components.chat_message import ChatMessage
 from components.status_bar import StatusBar
@@ -21,6 +30,8 @@ class CohereAssistantGUI:
     def __init__(self):
         self.window = None
         self.validator = ResponseValidator()
+        self.event_queue = Queue()
+        self.async_thread = None
         self.setup_window()
         
     # ============================================================================
@@ -30,7 +41,7 @@ class CohereAssistantGUI:
     def setup_window(self):
         """Initialize main window and components"""
         self.window = ctk.CTk()
-        self.window.title("Cohere Assistant")
+        self.window.title("Command R")
         self.window.geometry("1200x800")
         
         # Set up theme and components
@@ -43,10 +54,17 @@ class CohereAssistantGUI:
         self.co = cohere.ClientV2(os.getenv('COHERE_API_KEY'))
         self.messages = []
         
-        # Bind events
+        # Bind events and start async handling
         self._bind_events()
+        self._setup_async_handling()
         
         self.window.mainloop()
+    
+    def _setup_async_handling(self):
+        """Set up async event handling"""
+        self.async_thread = threading.Thread(target=self._run_async_loop, daemon=True)
+        self.async_thread.start()
+        self.window.after(100, self._process_event_queue)
     
     def _create_layout(self):
         """Create main application layout"""
@@ -71,7 +89,6 @@ class CohereAssistantGUI:
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         self.sidebar.grid_propagate(False)
         
-        # Add sidebar components
         self._add_title()
         self._add_divider()
         self._add_settings()
@@ -80,7 +97,7 @@ class CohereAssistantGUI:
         """Add application title to sidebar"""
         title = ctk.CTkLabel(
             self.sidebar,
-            text="Cohere Assistant",
+            text="Command R",
             font=ctk.CTkFont(size=24, weight="bold"),
             text_color=self.colors["dark"]["text"]
         )
@@ -97,16 +114,23 @@ class CohereAssistantGUI:
     
     def _add_settings(self):
         """Add settings controls to sidebar"""
-        # Settings label
-        settings = ctk.CTkLabel(
+        # Settings header
+        settings_label = ctk.CTkLabel(
             self.sidebar,
             text="Settings",
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color=self.colors["dark"]["text"]
         )
-        settings.pack(anchor="w", padx=20, pady=(20, 10))
+        settings_label.pack(anchor="w", padx=20, pady=(20, 10))
         
         # Temperature control
+        self._add_temperature_control()
+        
+        # Stream toggle
+        self._add_stream_toggle()
+    
+    def _add_temperature_control(self):
+        """Add temperature slider control"""
         temp_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         temp_frame.pack(fill="x", padx=20, pady=10)
         
@@ -128,8 +152,9 @@ class CohereAssistantGUI:
         )
         self.temperature.set(0.7)
         self.temperature.pack(fill="x", pady=(5, 0))
-        
-        # Stream toggle
+    
+    def _add_stream_toggle(self):
+        """Add stream toggle switch"""
         self.stream_var = ctk.BooleanVar(value=True)
         self.stream_switch = ctk.CTkSwitch(
             self.sidebar,
@@ -203,8 +228,55 @@ class CohereAssistantGUI:
     
     def _bind_events(self):
         """Bind keyboard events"""
-        self.window.bind('<Return>', lambda e: self.generate_response())
+        self.window.bind('<Return>', lambda e: self._handle_return(e))
         self.window.bind('<Command-k>', lambda e: self.clear_output())
+    
+    def _handle_return(self, event):
+        """Handle return key press"""
+        prompt = self.input_text.get("1.0", "end").strip()
+        if not prompt:
+            return "break"  # Prevent default return behavior
+        
+        # Add message immediately
+        self._add_message("user", prompt)
+        self.input_text.delete("1.0", "end")
+    
+        # Schedule the async operation
+        loop = asyncio.get_event_loop()
+        loop.create_task(self._handle_chat_request(prompt))
+    
+        return "break"
+    
+    def _run_async_loop(self):
+        """Run async event loop in separate thread"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+    
+    def _process_event_queue(self):
+        """Process events from async operations"""
+        try:
+            while True:
+                event = self.event_queue.get_nowait()
+                if event:
+                    event_type = event.get("type")
+                    data = event.get("data")
+                    
+                    if event_type == "message":
+                        self._add_message(data["role"], data["content"])
+                    elif event_type == "status":
+                        self.status_bar.set_status(data["text"], data["level"])
+                    elif event_type == "update":
+                        msg_widget = data["widget"]
+                        msg_widget.update_message(data["content"])
+        except:
+            pass
+        finally:
+            self.window.after(100, self._process_event_queue)
+    
+    # ============================================================================
+    # Message Handling
+    # ============================================================================
     
     def _add_message(self, role: str, content: str) -> ChatMessage:
         """Add a new message to the chat"""
@@ -232,16 +304,28 @@ class CohereAssistantGUI:
         prompt = self.input_text.get("1.0", "end").strip()
         if not prompt:
             return
-            
-        msg_widget = self._add_message("user", prompt)
+        self._add_message("user", prompt)
         self.input_text.delete("1.0", "end")
-        
+
+        # generate response
+        messages = [{"role": m["role"], "content": m["content"]} for m in self.messages]
+        response = self.co.chat(
+            model="command",
+            messages=messages,
+            temperature=self.temperature.get()
+        )
+
+        # validate response
+        validated_response = self.validator.validate_chat_response(response)
+        self._add_message("assistant", validated_response)
+        self.messages_frame._parent_canvas.yview_moveto(1.0)
+    
         try:
             if "calendar" in prompt.lower() or "schedule" in prompt.lower():
                 await self._handle_calendar_request(prompt)
             else:
                 await self._handle_chat_request(prompt)
-                
+            
         except Exception as e:
             self.status_bar.set_status(f"Error: {str(e)}", "error")
     
@@ -251,11 +335,8 @@ class CohereAssistantGUI:
             # Validate and extract event details
             event = self.validator.validate_calendar_event(prompt)
             
-            # Try to create calendar event
+            # Create calendar event
             try:
-                from icalendar import Calendar, Event
-                from datetime import datetime, timedelta
-                
                 cal = Calendar()
                 event_obj = Event()
                 
@@ -287,16 +368,38 @@ class CohereAssistantGUI:
                 Time: {event['time']}
                 Duration: {event['duration']} minutes"""
                 
-                self._add_message("assistant", response)
-                self.status_bar.set_status("Meeting scheduled", "success")
+                self.event_queue.put({
+                    "type": "message",
+                    "data": {"role": "assistant", "content": response}
+                })
+                self.event_queue.put({
+                    "type": "status",
+                    "data": {"text": "Meeting scheduled", "level": "success"}
+                })
             else:
-                self._add_message("assistant", "Failed to create calendar event.")
-                self.status_bar.set_status("Error scheduling meeting", "error")
+                self.event_queue.put({
+                    "type": "message",
+                    "data": {"role": "assistant", "content": "Failed to create calendar event."}
+                })
+                self.event_queue.put({
+                    "type": "status",
+                    "data": {"text": "Error scheduling meeting", "level": "error"}
+                })
                 
         except ValidationError as e:
-            self._add_message("assistant", f"I couldn't understand the event details: {str(e)}")
-            self.status_bar.set_status("Validation error", "error")
+            self.event_queue.put({
+                "type": "message",
+                "data": {
+                    "role": "assistant", 
+                    "content": f"I couldn't understand the event details: {str(e)}"
+                }
+            })
+            self.event_queue.put({
+                "type": "status",
+                "data": {"text": "Validation error", "level": "error"}
+            })
     
+
     async def _handle_chat_request(self, prompt: str):
         """Handle general chat requests"""
         try:
@@ -318,11 +421,8 @@ class CohereAssistantGUI:
                         chunk = event.text
                         current_response += chunk
                         
-                        # Validate the chunk
-                        validated_chunk = self.validator.validate_chat_response(chunk)
-                        
                         if msg_widget is None:
-                            msg_widget = self._add_message("assistant", validated_chunk)
+                            msg_widget = self._add_message("assistant", chunk)
                         else:
                             msg_widget.update_message(current_response)
                         
@@ -336,9 +436,7 @@ class CohereAssistantGUI:
                     temperature=self.temperature.get()
                 )
                 
-                # Validate complete response
-                validated_response = self.validator.validate_chat_response(response.text)
-                self._add_message("assistant", validated_response)
+                self._add_message("assistant", response.text)
                 self.messages_frame._parent_canvas.yview_moveto(1.0)
             
             self.status_bar.set_status("Response completed", "success")
@@ -346,5 +444,85 @@ class CohereAssistantGUI:
         except Exception as e:
             self.status_bar.set_status(f"Error: {str(e)}", "error")
 
+    async def _handle_streaming_response(self, messages: list):
+        """Handle streaming response from Cohere"""
+        response = self.co.chat_stream(
+            model="command",
+            messages=messages,
+            temperature=self.temperature.get()
+        )
+        
+        current_response = ""
+        msg_widget = None
+        
+        for event in response:
+            if event.event_type == "text-generation":
+                chunk = event.text
+                current_response += chunk
+                
+                # Validate the chunk
+                validated_chunk = self.validator.validate_chat_response(chunk)
+                
+                if msg_widget is None:
+                    self.event_queue.put({
+                        "type": "message",
+                        "data": {"role": "assistant", "content": validated_chunk}
+                    })
+                else:
+                    self.event_queue.put({
+                        "type": "update",
+                        "data": {
+                            "widget": msg_widget,
+                            "content": current_response
+                        }
+                    })
+    
+    async def _handle_complete_response(self, messages: list):
+        """Handle complete (non-streaming) response from Cohere"""
+        response = self.co.chat(
+            model="command",
+            messages=messages,
+            temperature=self.temperature.get()
+        )
+        
+        # Validate complete response
+        validated_response = self.validator.validate_chat_response(response.text)
+        self.event_queue.put({
+            "type": "message",
+            "data": {"role": "assistant", "content": validated_response}
+        })
+
+    # ============================================================================
+    # Error Handling
+    # ============================================================================
+    
+    def _handle_error(self, error: Exception, context: str = None):
+        """Central error handling method"""
+        error_message = str(error)
+        if context:
+            error_message = f"{context}: {error_message}"
+            
+        logging.error(error_message)
+        
+        self.event_queue.put({
+            "type": "status",
+            "data": {"text": error_message, "level": "error"}
+        })
+    
+    def _safe_call(self, func, *args, **kwargs):
+        """Safely execute a function with error handling"""
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            self._handle_error(e, f"Error in {func.__name__}")
+            return None
+
 if __name__ == "__main__":
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Start application
     app = CohereAssistantGUI()
