@@ -1,8 +1,6 @@
 
-import json
 import logging
 import subprocess
-from datetime import datetime
 from typing import Dict
 
 def create_calendar_event(event_details: Dict) -> bool:

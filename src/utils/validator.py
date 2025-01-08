@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Any, Union
+from typing import Dict, Any, Union
 import logging
 import re
 import json

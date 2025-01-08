@@ -1,5 +1,4 @@
 import customtkinter as ctk
-from typing import Callable
 
 class EnhancedInput(ctk.CTkTextbox):
     def __init__(self, master, placeholder: str = "", height: int = 100, **kwargs):
