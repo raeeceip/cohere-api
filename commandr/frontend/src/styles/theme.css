@@ -1,0 +1,15 @@
+:root {
+    --color-background: #1a1a1a;
+    --color-metallic: linear-gradient(145deg, rgba(40, 44, 52, 0.95), rgba(30, 33, 39, 0.95));
+    --color-primary: #6366f1;
+    --color-accent: #8b5cf6;
+    --color-text: #ffffff;
+    --color-border: rgba(255, 255, 255, 0.1);
+}
+
+.metallic-background {
+    background: var(--color-metallic);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+}
