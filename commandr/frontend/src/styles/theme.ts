@@ -24,4 +24,4 @@ export const cohereTheme = {
     }
   }
 
-export type CoherenceTheme = typeof cohereTheme
+export type cohereTheme= typeof cohereTheme
