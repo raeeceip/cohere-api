@@ -102,7 +102,7 @@ textarea::placeholder {
 }
 
 .send-button:hover {
-  background-color: v-bind('cohereTheme.colors.accent');
+  background-color: v-bind('cohereTheme.colors.primary.light');
 }
 
 .send-button:disabled {

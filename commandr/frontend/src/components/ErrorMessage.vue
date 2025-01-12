@@ -1,6 +1,7 @@
 
 <script setup lang="ts">
 import { cohereTheme } from '@/styles/theme';
+import { defineEmits, defineProps } from 'vue';
 const props = defineProps<{
   message: string
 }>()
@@ -31,15 +32,15 @@ const emit = defineEmits<{
   gap: v-bind('cohereTheme.spacing.sm');
   padding: v-bind('cohereTheme.spacing.md');
   background-color: rgba(255, 82, 82, 0.1);
-  border: 1px solid v-bind('cohereTheme.colors.error');
+  border: 1px solid v-bind('cohereTheme.colors.status.error');
   border-radius: 8px;
-  color: v-bind('cohereTheme.colors.error');
+  color: v-bind('cohereTheme.colors.status.error');
   margin: v-bind('cohereTheme.spacing.md') 0;
 }
 
 .retry-button {
   margin-left: auto;
-  background-color: v-bind('cohereTheme.colors.error');
+  background-color: v-bind('cohereTheme.colors.status.error');
   color: white;
   border: none;
   border-radius: 4px;

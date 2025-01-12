@@ -115,7 +115,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-  background: v-bind('cohereTheme.colors.accent');
+  background: v-bind('cohereTheme.colors.primary.light');
 }
 
 .value {
