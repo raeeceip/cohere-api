@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { Message } from '../types/message';
 
 declare global {
   interface Window {
@@ -12,11 +13,6 @@ declare global {
   }
 }
 
-export interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
 
 export function useMessages() {
   const messages = ref<Message[]>([])
@@ -33,7 +29,9 @@ export function useMessages() {
 
   const addMessage = async (content: string, temperature: number) => {
     messages.value.push({
+      id: crypto.randomUUID(),
       role: 'user',
+      sender: 'user',
       content,
       timestamp: new Date()
     })
@@ -41,7 +39,9 @@ export function useMessages() {
     try {
       const responseContent = await sendMessage(content, temperature)
       messages.value.push({
+        id: crypto.randomUUID(),
         role: 'assistant',
+        sender: 'assistant',
         content: responseContent,
         timestamp: new Date()
       })

@@ -1,7 +1,10 @@
 
 <script setup lang="ts">
-import { cohereTheme } from '@/styles/theme';
-import { defineEmits, ref } from 'vue';
+import { onMounted, ref } from 'vue';
+
+const props = defineProps<{
+  isLoading?: boolean
+}>()
 
 const emit = defineEmits<{
   (e: 'send', message: string): void
@@ -11,8 +14,9 @@ const message = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const handleSubmit = () => {
-  if (message.value.trim()) {
-    emit('send', message.value)
+  const trimmedMessage = message.value.trim()
+  if (trimmedMessage && !props.isLoading) {
+    emit('send', trimmedMessage)
     message.value = ''
     if (textareaRef.value) {
       textareaRef.value.style.height = 'auto'
@@ -21,94 +25,184 @@ const handleSubmit = () => {
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  if (e.key === 'Enter' && !e.shiftKey && !props.isLoading) {
     e.preventDefault()
     handleSubmit()
   }
 }
 
-const adjustTextareaHeight = (e: Event) => {
-  const textarea = e.target as HTMLTextAreaElement
-  textarea.style.height = 'auto'
-  textarea.style.height = `${textarea.scrollHeight}px`
+const adjustTextareaHeight = () => {
+  if (!textareaRef.value) return
+  
+  textareaRef.value.style.height = 'auto'
+  textareaRef.value.style.height = `${Math.min(textareaRef.value.scrollHeight, 200)}px`
 }
+
+onMounted(() => {
+  if (textareaRef.value) {
+    textareaRef.value.focus()
+  }
+})
 </script>
 
 <template>
-  <div class="chat-input">
-    <textarea
-      ref="textareaRef"
-      v-model="message"
-      @keydown="handleKeydown"
-      @input="adjustTextareaHeight"
-      placeholder="Type your message..."
-      rows="1"
-    />
-    <button 
-      @click="handleSubmit"
-      :disabled="!message.trim()"
-      class="send-button"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"></line>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-      </svg>
-    </button>
+  <div class="chat-input" :class="{ loading: isLoading }">
+    <div class="input-container">
+      <textarea
+        ref="textareaRef"
+        v-model="message"
+        @keydown="handleKeydown"
+        @input="adjustTextareaHeight"
+        :placeholder="isLoading ? 'Please wait...' : 'Type your message...'"
+        :disabled="isLoading"
+        class="message-input"
+        rows="1"
+      />
+      
+      <button 
+        @click="handleSubmit"
+        :disabled="!message.trim() || isLoading"
+        class="send-button"
+      >
+        <svg 
+          v-if="!isLoading"
+          viewBox="0 0 24 24" 
+          fill="none" 
+          class="send-icon"
+        >
+          <path 
+            d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" 
+            fill="currentColor"
+          />
+        </svg>
+        <div v-else class="loading-spinner">
+          <span></span>
+        </div>
+      </button>
+    </div>
+
+    <div class="input-footer">
+      <span class="shortcut-hint">Press ⏎ to send</span>
+      <span class="shortcut-hint">⇧ + ⏎ for new line</span>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .chat-input {
-  position: relative;
-  padding: v-bind('cohereTheme.spacing.md');
-  background-color: v-bind('cohereTheme.colors.surface');
-  border-radius: 8px;
-  margin-top: v-bind('cohereTheme.spacing.md');
-  display: flex;
-  gap: v-bind('cohereTheme.spacing.md');
-  align-items: flex-end;
+  border-top: 1px solid var(--border-color);
+  padding: 1rem;
+  background: var(--input-bg);
 }
 
-textarea {
-  flex-grow: 1;
-  background-color: transparent;
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  background: var(--input-area-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.message-input {
+  flex: 1;
+  min-height: 24px;
+  max-height: 200px;
   border: none;
-  resize: none;
-  color: v-bind('cohereTheme.colors.text.primary');
-  font-size: 1rem;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
   line-height: 1.5;
-  max-height: 150px;
-  padding: v-bind('cohereTheme.spacing.sm');
+  resize: none;
+  padding: 0;
+}
+
+.message-input:focus {
   outline: none;
 }
 
-textarea::placeholder {
-  color: v-bind('cohereTheme.colors.text.secondary');
+.message-input::placeholder {
+  color: var(--text-secondary);
 }
 
 .send-button {
-  background-color: v-bind('cohereTheme.colors.primary');
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary);
+  color: white;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: v-bind('cohereTheme.colors.text.primary');
-  padding: v-bind('cohereTheme.spacing.xs');
 }
 
-.send-button:hover {
-  background-color: v-bind('cohereTheme.colors.primary.light');
+.send-button:hover:not(:disabled) {
+  background: var(--primary-dark);
 }
 
 .send-button:disabled {
-  background-color: v-bind('cohereTheme.colors.border');
+  background: var(--disabled-bg);
   cursor: not-allowed;
+}
+
+.send-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.input-footer {
+  margin-top: 0.5rem;
+  padding: 0 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.shortcut-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+:root {
+  --input-bg: #FFFFFF;
+  --input-area-bg: #F9FAFB;
+  --border-color: #E5E7EB;
+  --primary: #6B4FBB;
+  --primary-dark: #5A3FA3;
+  --disabled-bg: #E5E7EB;
+  --text-primary: #1F2937;
+  --text-secondary: #6B7280;
+}
+
+[data-theme="dark"] {
+  --input-bg: #1A1A1A;
+  --input-area-bg: #2D2D2D;
+  --border-color: #404040;
+  --disabled-bg: #404040;
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+}
+
+.loading {
   opacity: 0.7;
+  pointer-events: none;
 }
 </style>
-

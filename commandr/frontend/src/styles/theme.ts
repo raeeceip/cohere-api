@@ -19,8 +19,8 @@ export const cohereTheme = {
       overlay: 'rgba(0, 0, 0, 0.5)',
     },
     text: {
-      primary: '#1A1A1A',
-      secondary: '#6B7280',
+      primary: '#1F2937',
+      secondary: '#3f3f3f',
       accent: '#6B4FBB',
       inverted: '#FFFFFF',
     },
